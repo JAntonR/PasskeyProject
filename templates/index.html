@@ -1,10 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Passkey Demo</title>
+  <meta charset="UTF-8">
+  <title>Passkey Auth Demo</title>
 </head>
 <body>
-  <h1>Welcome to the Passkey Demo</h1>
-  <a href="/register">Register</a> | <a href="/login">Login</a>
+  <h1>Passkey Authentication Demo</h1>
+
+  <!-- Registration -->
+  <h2>Register</h2>
+  <input type="text" id="username" placeholder="Enter username" />
+  <button onclick="register()">Register</button>
+
+  <!-- Login -->
+  <h2>Login</h2>
+  <button onclick="login()">Login</button>
+
+  <!-- Status Message -->
+  <p id="msg"></p>
+
+  <!-- Load script -->
+  <script src="/static/script.js"></script>
 </body>
 </html>
