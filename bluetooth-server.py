@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from flask_cors import CORS
 import asyncio
 from bleak import BleakScanner
@@ -29,6 +29,10 @@ async def scan_ble_devices():
                 "metadata": clean_metadata(d.metadata)
             })
     return devices
+
+@app.route('/')
+def index():
+    return render_template("index.html")
 
 @app.route('/scan')
 def scan():
