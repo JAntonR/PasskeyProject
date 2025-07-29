@@ -7,20 +7,23 @@ app = Flask(__name__)
 CORS(app)
 
 async def scan_ble_devices():
-    devices = await BleakScanner.discover(timeout=5.0)
-    result = []
-    for device in devices:
-        # Extract RSSI
-        rssi = getattr(device, "rssi", None)
-        if rssi is None and hasattr(device, "metadata"):
-            rssi = device.metadata.get("rssi", None)
+    # We'll scan multiple times and aggregate results to get RSSI values better
+    all_devices = {}
+    for _ in range(3):  # Scan 3 times
+        devices = await BleakScanner.discover(timeout=2.0)
+        for device in devices:
+            rssi = getattr(device, "rssi", None)
+            if rssi is None and hasattr(device, "metadata"):
+                rssi = device.metadata.get("rssi", None)
 
-        result.append({
-            "name": device.name or "Unknown",
-            "address": device.address,
-            "rssi": rssi
-        })
-    return result
+            # Update or add device info with latest RSSI
+            all_devices[device.address] = {
+                "name": device.name or "Unknown",
+                "address": device.address,
+                "rssi": rssi
+            }
+    # Return list of devices detected
+    return list(all_devices.values())
 
 @app.route('/')
 def index():
@@ -28,8 +31,8 @@ def index():
 
 @app.route('/scan')
 def scan():
-    devices = asyncio.run(scan_ble_devices())
-    return jsonify(devices)
+    devices_list = asyncio.run(scan_ble_devices())
+    return jsonify(devices_list)
 
 if __name__ == '__main__':
     app.run(debug=True)
