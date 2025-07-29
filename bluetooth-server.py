@@ -1,35 +1,42 @@
-import asyncio
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify
 from flask_cors import CORS
+import asyncio
 from bleak import BleakScanner
 
 app = Flask(__name__)
 CORS(app)
 
+def clean_metadata(metadata):
+    clean = {}
+    for key, value in metadata.items():
+        if isinstance(value, bytes):
+            clean[key] = value.hex()
+        elif isinstance(value, dict):
+            clean[key] = clean_metadata(value)
+        else:
+            clean[key] = value
+    return clean
+
 async def scan_ble_devices():
-    all_devices = {}
-    for _ in range(3): 
-        devices = await BleakScanner.discover(timeout=2.0)
-        for device in devices:
-            rssi = getattr(device, "rssi", None)
-            if rssi is None and hasattr(device, "metadata"):
-                rssi = device.metadata.get("rssi", None)
-
-            all_devices[device.address] = {
-                "name": device.name or "Unknown",
-                "address": device.address,
-                "rssi": rssi
-            }
-    return list(all_devices.values())
-
-@app.route('/')
-def index():
-    return render_template('index.html')
+    devices = []
+    async with BleakScanner() as scanner:
+        await asyncio.sleep(5.0)  # scan for 5 seconds
+        for d in scanner.discovered_devices:
+            devices.append({
+                "name": d.name,
+                "address": d.address,
+                "rssi": d.rssi,
+                "metadata": clean_metadata(d.metadata)
+            })
+    return devices
 
 @app.route('/scan')
 def scan():
-    devices_list = asyncio.run(scan_ble_devices())
-    return jsonify(devices_list)
+    try:
+        devices = asyncio.run(scan_ble_devices())
+        return jsonify(devices)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
