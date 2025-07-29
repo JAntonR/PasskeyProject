@@ -53,3 +53,4 @@ June 29th, 2025
 		- The locker contains a device (the one currently made or a new device) that detects the Bluetooth beacon emitted
 		- The locker unlocks if the device is within range and matches the correct authenticated user. 
 		- 11:57 Finished most of the flow diagram for the system. I was encouraged to do a diagram to make things easier and understand the system without randomness. 
+		- 14:32 Created a formal document containing what I have done, user stories, requirements, and other such things that are important to know as a software engineer. Also worked on the Bluetooth detection software in a soft state. It manages to understand what devices are nearby but not their distance or strength. Had it working before so I know it works, but I didn't push that change and as such I have lost it in the modification.
