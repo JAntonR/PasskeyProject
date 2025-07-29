@@ -1,0 +1,55 @@
+User request:
+Little C's wants a contactless pickup option for picking up orders.
+
+It is similar to the Amazon lockers, where you come and no one is physically there, but you give some biometric or a passkey that allows you to pick up the order.
+
+Dennis says they have a device that allows the detection of users depending on the distance of the device. 
+
+They want to do it incorporating this distance detection Bluetooth device and using passkeys or some biometric to assure arrival
+
+Example:
+Ben orders pizza from his house. Ben leaves his house, and Little C starts making the pizza. Little C finishes the pizza and places it in the heated locker. Ben arrives at the locker, and the locker UI/manager greets him. Ben gives his credentials to the machine, and the locker opens up and gives him his pizza. Ben takes the pizza, closes the locker, and eats it on his way home. 
+
+Tasks:
+- Find out more about the usage of passkeys and biometric systems.
+- Create a dummy code in Python or JavaScript that simulates this idea
+- Create a prototype and demo it to Dennis and check on the approval of this going forward.
+
+Some ideas so far:
+- I could use the Cisco Packet Tracer from Network Design to simulate the locker and passkey system
+
+July 28th, 2025
+- 10:30 - 12:00
+	- Researched about Passkeys and how they interact with Bluetooth
+	-Goal is to figure out how passkeys work
+
+12:00 - 17:00 
+	- Pass keys are getting tricky with me because the biometrics aspect of this is quite difficult
+	- I am going to switch gears and do it based on PIN codes, which is easier
+	- Need to work on a sort of multifactor authentication to collect these pizzas
+	- Scrap the pin idea, the whole idea with passkeys is that it is biometric-oriented. 
+	-Found a video that described the fingerprint authenticator in JavaScript alone. This could prove useful when developing: https://www.youtube.com/watch?v=viZs1iVsLpA
+	- 15:03 Pushed a completed working set of code for a biometric (finger scanner) based passkey. Will work on the next part.
+	- The passkey part of the code is done. Planning on renaming the branch to fit the finished section of passkeys. Next up is doing the Bluetooth connection. 
+	- The plan is to measure x distance from the pick-up location and prompt the user with the biometric scan. The theory will probably be done through Cisco Packet Tracer, since I know that is a good way to test network connectivity and such. 
+	- 16:02 case changed to no longer directly fit little c's. The decision now is to create a system or device, or software that is primarily just for passkeys. Not for pizzas in specifics. Bluetooth is fine, but knowing exactly what the device is is important to prevent theft. 
+	- Come up with a solution that is passkey-oriented, but goes beyond Bluetooth. Make it secure and accessible to everyone. 
+	- Possible solution. Instead of using Bluetooth to know which device is close, use cell numbers to fit biometrics to receive orders. Can do cell number either by texting the locker that you are here, or by triangulating the signal from each cellphone tower in order to figure out where the person is. (2nd one may be invasive.) 
+	-Once notification of arrival, process a passkey to the user, and then open the locker for pick up once approved.
+	-Please go to bed earlier. Working on 3 hours of sleep is awful.
+	-Could give users a card on purchase that is locked behind their biometrics. Similar to how people use Apple Pay by inputting their PIN before being able to use it. It is less location-based and more purchase-based. If you buy a pizza, you receive a card that you can add to your e-wallet. This e-wallet can be taken to the locker, where, once you are there, you can use your biometrics on your phone to unlock the wallet and open the locker with the card. 
+
+
+
+
+June 29th, 2025
+	- Took a more in-depth look at the passkey problem and what it would take to solve it. I believe a good solution to this problem is to generate a QR code on the locker, have the user scan and input their passkey (whether it be fingerprint, face scan, or a pin), and allow pick up once both systems verify the passkey. This solves the distance problem, where both devices would need to connect locally before giving the product to the correct consumer.
+
+	- I have decided to follow up on the QR code option as it seems more secure and does not require an app to use. The Bluetooth requirement remains unknown at large, as it can be a security risk.
+	-Talked to Dennis. Solution is fine, but the point is to seamlessly get to the solution of walking to the locker and the door opens without having to do much, if anything.
+	- Okay, redo looks something like this
+		- When the user wants to pick up a package, they log in with a passkey on their device
+		- If the passkey is activated, it makes the device emit a Bluetooth beacon that the locker can detect
+		- The locker contains a device (the one currently made or a new device) that detects the Bluetooth beacon emitted
+		- The locker unlocks if the device is within range and matches the correct authenticated user. 
+		- 11:57 Finished most of the flow diagram for the system. I was encouraged to do a diagram to make things easier and understand the system without randomness. 
