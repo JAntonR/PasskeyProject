@@ -54,6 +54,10 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       document.getElementById("output").textContent = output;
     }
 
+    // Function to authenticate using Windows Hello
+    // This function only works on local host
+    // and requires a compatible browser and device.
+    // It uses the Web Authentication API to create a passkey.
     async function authenticate() {
       try {
         const res = await fetch("/login-challenge");
