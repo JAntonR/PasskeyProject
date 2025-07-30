@@ -9,9 +9,11 @@
   <pre id="output"></pre>
 
   <script>
+    const targetName = "BBNo$";
+
     function estimateDistance(rssi) {
       if (rssi === null || rssi === undefined) return NaN;
-      const txPower = -59; // Adjust if needed
+      const txPower = -59; // Adjust based on real-world conditions
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
@@ -19,21 +21,89 @@
       const res = await fetch('/scan');
       const devices = await res.json();
 
-      const output = devices.map(device => {
-        const name = device.name || "Unknown";
-        const address = device.address;
-        const rssi = device.rssi;
+      const targetDevice = devices.find(device => device.name === targetName);
+
+      let output = "";
+      if (targetDevice) {
+        const name = targetDevice.name || "Unknown";
+        const address = targetDevice.address;
+        const rssi = targetDevice.rssi;
         const distance = estimateDistance(rssi);
 
-        return `Device: ${name}
+        output = `🎯 Target Device Found:
+Name: ${name}
 Address: ${address}
 RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
-Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}
+Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
-`;
-      }).join("\n");
+        if (distance <= 5) {
+          output += `\n\n📲 Initiating Windows Hello Login...`;
+          authenticate();
+        } else {
+          output += `\n⚠️ Too far away for login.`;
+        }
+      } else {
+        output = "❌ Target device not found.";
+      }
 
       document.getElementById("output").textContent = output;
+    }
+
+    async function authenticate() {
+      try {
+        const res = await fetch("/login-challenge");
+        const { publicKey } = await res.json();
+
+        publicKey.challenge = hexToUint8Array(publicKey.challenge);
+        publicKey.allowCredentials.forEach(cred => {
+          cred.id = base64ToUint8Array(cred.id);
+        });
+
+        const assertion = await navigator.credentials.get({ publicKey });
+
+        const id = arrayBufferToBase64(assertion.rawId);
+        const authRes = await fetch("/verify-assertion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+
+        if (authRes.ok) {
+          alert("✅ Authenticated with Windows Hello!");
+        } else {
+          alert("❌ Authentication failed.");
+        }
+      } catch (err) {
+        console.error("❌ Authentication error:", err);
+        alert("❌ Login failed. See console for details.");
+      }
+    }
+
+    function base64ToUint8Array(base64) {
+      const binary = atob(base64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    function hexToUint8Array(hex) {
+      const bytes = new Uint8Array(hex.length / 2);
+      for (let i = 0; i < bytes.length; i++) {
+        bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+      }
+      return bytes;
+    }
+
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
     }
   </script>
 </body>
