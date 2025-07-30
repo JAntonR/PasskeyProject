@@ -11,12 +11,17 @@
   <script>
     const targetName = "BBNo$";
 
+    // Function to estimate distance based on RSSI
+    // This is a fairly okay approximation, but real-world conditions due to disturbances
+    // can affect accuracy significantly.
+    // The txPower value should be adjusted based on the specific device and environment.
     function estimateDistance(rssi) {
       if (rssi === null || rssi === undefined) return NaN;
       const txPower = -59; // Adjust based on real-world conditions
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
+    // Function to scan for devices and check for the target device
     async function scan() {
       const res = await fetch('/scan');
       const devices = await res.json();
@@ -49,6 +54,7 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       document.getElementById("output").textContent = output;
     }
 
+    // Function to authenticate using Windows Hello
     async function authenticate() {
       try {
         const res = await fetch("/login-challenge");
@@ -79,6 +85,9 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       }
     }
 
+    // Helper functions to convert between formats
+    // These functions are used to convert the challenge and credential IDs
+    // from base64 and hex formats to Uint8Array, which is required by the Web
     function base64ToUint8Array(base64) {
       const binary = atob(base64);
       const len = binary.length;
@@ -89,6 +98,8 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       return bytes;
     }
 
+    // API.
+    // Converts a hex string to a Uint8Array.
     function hexToUint8Array(hex) {
       const bytes = new Uint8Array(hex.length / 2);
       for (let i = 0; i < bytes.length; i++) {
@@ -97,6 +108,9 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       return bytes;
     }
 
+    // Converts an ArrayBuffer to a base64 string.
+    // This is used to convert the rawId from the assertion to a format that can be
+    // sent to the server.
     function arrayBufferToBase64(buffer) {
       const bytes = new Uint8Array(buffer);
       let binary = '';
