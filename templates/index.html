@@ -18,6 +18,7 @@
     function estimateDistance(rssi) {
       if (rssi === null || rssi === undefined) return NaN;
       const txPower = -59; // Adjust based on real-world conditions
+      const txPower = -59;
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
@@ -35,26 +36,25 @@
         const rssi = targetDevice.rssi;
         const distance = estimateDistance(rssi);
 
-        output = `🎯 Target Device Found:
+        output = `Target Device Found:
 Name: ${name}
 Address: ${address}
 RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
 Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
-        if (distance <= 5) {
+        if (distance <= 0.1) {
           output += `\n\n📲 Initiating Windows Hello Login...`;
           authenticate();
         } else {
-          output += `\n⚠️ Too far away for login.`;
+          output += `\nToo far away for login.`;
         }
       } else {
-        output = "❌ Target device not found.";
+        output = "Target device not found.";
       }
 
       document.getElementById("output").textContent = output;
     }
 
-    // Function to authenticate using Windows Hello
     async function authenticate() {
       try {
         const res = await fetch("/login-challenge");
@@ -75,13 +75,13 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
         });
 
         if (authRes.ok) {
-          alert("✅ Authenticated with Windows Hello!");
+          alert("Authenticated with Windows Hello!");
         } else {
-          alert("❌ Authentication failed.");
+          alert("Authentication failed.");
         }
       } catch (err) {
-        console.error("❌ Authentication error:", err);
-        alert("❌ Login failed. See console for details.");
+        console.error("Authentication error:", err);
+        alert("Login failed. See console for details.");
       }
     }
 
@@ -119,6 +119,28 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       }
       return btoa(binary);
     }
+
+    let scanIntervalId = null;
+
+    async function periodicScan() {
+      await scan();
+      const output = document.getElementById("output").textContent;
+
+      // Continue scanning if device not found OR device too far
+      if (
+        output.includes("Target device not found.") ||
+        output.includes("Too far away for login.")
+      ) {
+        // keep scanning, do nothing
+      } else {
+        // Device found AND close enough -> stop scanning
+        clearInterval(scanIntervalId);
+        scanIntervalId = null;
+      }
+    }
+
+    scanIntervalId = setInterval(periodicScan, 10000);
+    periodicScan();
   </script>
 </body>
 </html>
