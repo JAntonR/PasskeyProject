@@ -7,12 +7,20 @@
 <script>
   const targetName = "BBNo$"; // Device name to look for
 
+  // Function to estimate distance based on RSSI
+  // This uses a simple formula: distance = 10^((txPower - rssi) / 20)
+  // txPower is the RSSI value at 1 meter, typically around -59 dBm for BLE devices.
+  // The function returns the estimated distance in meters.
   function estimateDistance(rssi) {
     if (rssi === null || rssi === undefined) return NaN;
     const txPower = -59;
     return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
   }
 
+  // Register a passkey using WebAuthn
+  // This function creates a new public key credential using the WebAuthn API.  
+  // It generates a challenge, relying party information, user information, and other parameters.
+  // The credential is then stored in localStorage for later use.
   async function registerPasskey() {
     try {
       const publicKey = {
@@ -45,6 +53,10 @@
     }
   }
 
+  // Authenticate using the registered passkey
+  // This function retrieves the stored credential ID from localStorage and uses it to authenticate the user
+  // It creates a public key credential request with the necessary parameters.
+  // If successful, it alerts the user of successful authentication.
   async function authenticate() {
     try {
       const storedId = localStorage.getItem("credentialId");
@@ -71,6 +83,8 @@
     }
   }
 
+  // Scan for Bluetooth devices
+  // This function fetches the list of Bluetooth devices from the server.
   async function scan() {
     const res = await fetch('/scan');
     const devices = await res.json();
@@ -85,10 +99,10 @@
       const distance = estimateDistance(rssi);
 
       output = `🎯 Target Device Found:
-Name: ${name}
-Address: ${address}
-RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
-Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
+      Name: ${name}
+      Address: ${address}
+      RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
+      Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
       if (!isNaN(distance) && distance <= 5) {
         output += "\n\n🟢 Initiating Windows Hello Authentication...";
