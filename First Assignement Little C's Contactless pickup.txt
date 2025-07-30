@@ -54,3 +54,17 @@ June 29th, 2025
 		- The locker unlocks if the device is within range and matches the correct authenticated user. 
 		- 11:57 Finished most of the flow diagram for the system. I was encouraged to do a diagram to make things easier and understand the system without randomness. 
 		- 14:32 Created a formal document containing what I have done, user stories, requirements, and other such things that are important to know as a software engineer. Also worked on the Bluetooth detection software in a soft state. It manages to understand what devices are nearby but not their distance or strength. Had it working before so I know it works, but I didn't push that change and as such I have lost it in the modification.
+
+
+
+
+
+June 30th 2025
+	- 9:42 Got the code to be able to scan and detect the device distance.
+	- Managed to filter out all the devices that are read, and display only the device required, but did so by name and not MAC address. 
+	- Managed to merge both functions of detecting bluetooth distance, and prompting with passkey. 
+	- 10:35 Two branches were made, one with the passkey being prompted through QR code and on my phone, the other being strictly on the PC
+	- The PC passkey option works and always results in a pass 
+	- The mobile passkey option is ideal since users would be walking into the store with their phones, but the results fail since I have no registered passkey on my IPhone
+	- Still have a problem with finding devices through MAC address (using device name currently) 
+	- 11: 32 Added documentation to the code, but this is still just a prototype that works, but would not work in actual deployment. 
