@@ -18,7 +18,6 @@
     function estimateDistance(rssi) {
       if (rssi === null || rssi === undefined) return NaN;
       const txPower = -59; // Adjust based on real-world conditions
-      const txPower = -59;
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
