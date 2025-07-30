@@ -1,10 +1,12 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 import asyncio
 from bleak import BleakScanner
 
 app = Flask(__name__)
 CORS(app)
+
+TARGET_DEVICE_NAME = "BBNo$"
 
 def clean_metadata(metadata):
     clean = {}
@@ -41,6 +43,28 @@ def scan():
         return jsonify(devices)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/login-challenge")
+def login_challenge():
+    return jsonify({
+        "publicKey": {
+            "challenge": "c0ffee" * 8,
+            "rpId": "localhost",
+            "timeout": 60000,
+            "allowCredentials": [{
+                "type": "public-key",
+                "id": "QUJDREVGR0g="  # base64 for fake id: "ABCDEFGH"
+            }],
+            "userVerification": "preferred"
+        }
+    })
+
+@app.route("/verify-assertion", methods=["POST"])
+def verify_assertion():
+    data = request.get_json()
+    print("Received credential ID:", data.get("id"))
+    # NOTE: Replace this with actual validation using fido2 or similar
+    return jsonify({"status": "ok"})
 
 if __name__ == '__main__':
     app.run(debug=True)
