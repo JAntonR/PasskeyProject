@@ -4,7 +4,9 @@
   <button onclick="scan()"> Scan for Devices</button>
   <pre id="output"></pre>
 
+  
 <script>
+  // I felt like the html was empty so instead of creating a new file, I added the JS code here.
   const targetName = "BBNo$"; // Device name to look for
 
   // Function to estimate distance based on RSSI
@@ -13,7 +15,7 @@
   // The function returns the estimated distance in meters.
   function estimateDistance(rssi) {
     if (rssi === null || rssi === undefined) return NaN;
-    const txPower = -59;
+    const txPower = -60; // RSSI at 1 meter 
     return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
   }
 
@@ -25,7 +27,7 @@
     try {
       const publicKey = {
         challenge: new Uint8Array(32), // Normally provided by the server
-        rp: { name: "My Demo App" },
+        rp: { name: "Demo App" },
         user: {
           id: new Uint8Array(16),
           name: "demo-user",
