@@ -1,7 +1,7 @@
 <body>
   <h1>Phone Bluetooth Distance</h1>
-  <button onclick="registerPasskey()">🔐 Register Passkey</button>
-  <button onclick="scan()">📡 Scan for Devices</button>
+  <button onclick="registerPasskey()"> Register Passkey</button>
+  <button onclick="scan()"> Scan for Devices</button>
   <pre id="output"></pre>
 
 <script>
@@ -47,9 +47,9 @@
       const idBase64 = btoa(String.fromCharCode(...new Uint8Array(rawId)));
       localStorage.setItem("credentialId", idBase64);
 
-      alert("✅ Passkey registered and saved!");
+      alert("Passkey registered and saved!");
     } catch (err) {
-      alert("❌ Passkey registration failed: " + err.message);
+      alert("Passkey registration failed: " + err.message);
     }
   }
 
@@ -61,7 +61,7 @@
     try {
       const storedId = localStorage.getItem("credentialId");
       if (!storedId) {
-        alert("⚠️ No passkey found. Please register one first.");
+        alert("No passkey found. Please register one first.");
         return;
       }
 
@@ -77,9 +77,9 @@
       };
 
       const assertion = await navigator.credentials.get({ publicKey });
-      alert("✅ Windows Hello Authentication Successful");
+      alert("Windows Hello Authentication Successful");
     } catch (err) {
-      alert("❌ Authentication failed: " + err.message);
+      alert("Authentication failed: " + err.message);
     }
   }
 
@@ -98,18 +98,18 @@
       const rssi = targetDevice.rssi;
       const distance = estimateDistance(rssi);
 
-      output = `🎯 Target Device Found:
+      output = `Target Device Found:
       Name: ${name}
       Address: ${address}
       RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
       Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
       if (!isNaN(distance) && distance <= 5) {
-        output += "\n\n🟢 Initiating Windows Hello Authentication...";
+        output += "\n\n Initiating Windows Hello Authentication...";
         authenticate();
       }
     } else {
-      output = "❌ Target device not found.";
+      output = " Target device not found.";
     }
 
     document.getElementById("output").textContent = output;
