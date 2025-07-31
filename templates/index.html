@@ -1,40 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Locker BLE Scanner</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    #output { white-space: pre-wrap; font-family: monospace; }
+  </style>
 </head>
 <body>
-  <h1>Locker is scanning for phone...</h1>
-  <pre id="output"></pre>
+  <h1>Locker is scanning for iBeacon phone...</h1>
+  <pre id="output">Starting scan...</pre>
 
   <script>
-    async function estimateDistance(rssi) {
-      const txPower = -59;
+    // Estimate distance from RSSI (in meters)
+    function estimateDistance(rssi) {
+      const txPower = -59; // typical iBeacon transmit power
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
     async function scan() {
-      const res = await fetch('/scan');
-      const devices = await res.json();
-      const target = devices.find(d => d.name === "BBNo$");
+      try {
+        const res = await fetch('/scan');
+        const devices = await res.json();
 
-      let output = "";
-      if (target) {
-        const rssi = target.rssi;
-        const dist = await estimateDistance(rssi);
-        output = `Found ${target.name} at RSSI ${rssi}, est. ${dist} meters`;
-        if (dist <= 0.1) {
-          output += "\n✅ In range - triggered Face ID on phone";
+        const target = devices.find(d => d.type === "iBeacon");
+
+        let output = "";
+
+        if (target) {
+          const rssi = target.rssi;
+          const dist = estimateDistance(rssi);
+          output = `Found iBeacon UUID: ${target.uuid}\nRSSI: ${rssi}\nEstimated distance: ${dist} meters\n`;
+
+          if (dist <= 0.5) { // threshold for triggering auth
+            output += "✅ In range - triggering Face ID on phone...";
+          } else {
+            output += "📵 Too far - not triggering.";
+          }
         } else {
-          output += "\n📵 Too far - not triggering";
+          output = "No iBeacon detected.";
         }
-      } else {
-        output = "Target not found";
-      }
 
-      document.getElementById("output").textContent = output;
+        document.getElementById("output").textContent = output;
+      } catch (err) {
+        document.getElementById("output").textContent = "Error scanning: " + err.message;
+      }
     }
 
+    // Scan every 5 seconds
     setInterval(scan, 5000);
     scan();
   </script>
