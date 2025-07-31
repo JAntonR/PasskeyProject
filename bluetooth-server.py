@@ -65,7 +65,7 @@ def login_challenge():
     return jsonify({
         "publicKey": {
             "challenge": "c0ffee" * 8,
-            "rpId": "localhost",
+            "rpId": "29755a3ecaee.ngrok-free.app",
             "timeout": 60000,
             "allowCredentials": [{
                 "type": "public-key",
