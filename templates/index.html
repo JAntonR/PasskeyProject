@@ -5,7 +5,6 @@
 </head>
 <body>
   <h1>Phone Bluetooth Distance</h1>
-  <button onclick="scan()">Scan for Devices</button>
   <pre id="output"></pre>
 
   <script>
@@ -17,7 +16,7 @@
     // The txPower value should be adjusted based on the specific device and environment.
     function estimateDistance(rssi) {
       if (rssi === null || rssi === undefined) return NaN;
-      const txPower = -59; // Adjust based on real-world conditions
+      const txPower = -59; // Rougly the RSSI at 1 meter
       return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
     }
 
@@ -41,6 +40,8 @@ Address: ${address}
 RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
 Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
+        // Change the distance threshold as needed. 0.1 meters is used because I wanted to test without leaving my desk.
+        // If the device is within 0.1 meters, initiate Windows Hello login.
         if (distance <= 0.1) {
           output += `\n\n📲 Initiating Windows Hello Login...`;
           authenticate();
@@ -103,6 +104,7 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
     // API.
     // Converts a hex string to a Uint8Array.
+    // This is used to convert the challenge from hex to a format that can be used by the Web Authentication API.
     function hexToUint8Array(hex) {
       const bytes = new Uint8Array(hex.length / 2);
       for (let i = 0; i < bytes.length; i++) {
@@ -125,6 +127,8 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
     let scanIntervalId = null;
 
+    // Periodically scan for devices every 10 seconds
+    // and stop scanning when the target device is found and close enough.
     async function periodicScan() {
       await scan();
       const output = document.getElementById("output").textContent;
@@ -136,7 +140,7 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
       ) {
         // keep scanning, do nothing
       } else {
-        // Device found AND close enough -> stop scanning
+        // Device found AND close enough stop scanning
         clearInterval(scanIntervalId);
         scanIntervalId = null;
       }
