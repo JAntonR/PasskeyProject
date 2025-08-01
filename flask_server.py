@@ -1,69 +1,93 @@
-# flask_server.py
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
-from base64 import b64encode, b64decode
-import uuid
+from flask import Flask, jsonify, request
+import os
 import json
-from pathlib import Path
+import asyncio
+from base64 import b64encode, b64decode
+from bleak import BleakScanner
 
 from webauthn import (
     generate_registration_options,
+    generate_authentication_options,
+    options_to_json,
     verify_registration_response,
+    verify_authentication_response,
 )
-from webauthn.helpers import options_to_json
 from webauthn.helpers.structs import (
     PublicKeyCredentialRpEntity,
     PublicKeyCredentialUserEntity,
-    RegistrationCredential,
     AuthenticatorSelectionCriteria,
+    AttestationConveyancePreference,
     UserVerificationRequirement,
+    RegistrationCredential,
+    AuthenticationCredential,
 )
 
-app = Flask(__name__, static_folder="static", template_folder="templates")
-CORS(app)
+app = Flask(__name__)
 
-# ------------------ Config ------------------
-RP_ID = "localhost"  # Can update to ngrok domain if needed
-RP_NAME = "Phone Locker"
-ORIGIN = "https://decfb4248dbd.ngrok-free.app"  # <- Replace after ngrok is started
-TRIGGER_FILE = Path("trigger.json")
+# WebAuthn Config
+rp_id = "cf9a091c54f7.ngrok-free.app"  # ← Update to your ngrok domain
+origin = f"https://{rp_id}"
+rp = PublicKeyCredentialRpEntity(id=rp_id, name="Phone Locker")
 
+# BLE beacon settings
+IBEACON_UUID = "b9407f30-f5f8-466e-aff9-25556b57fe6d"
+RSSI_THRESHOLD = -70
+
+# Runtime data
 users = {}
 challenges = {}
+auth_challenges = {}
+trigger = {"value": False}
 
-# ------------------ Routes ------------------
+USERS_FILE = "users.json"
 
-@app.route("/")
-def home():
-    return send_from_directory("templates", "register.html")
+# ---------- User Storage ----------
+def save_users():
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, default=lambda x: b64encode(x).decode())
 
-@app.route("/register-challenge", methods=["POST"])
-def register_challenge():
+def load_users():
+    global users
+    if os.path.exists(USERS_FILE):
+        with open(USERS_FILE, "r") as f:
+            raw = json.load(f)
+            for username, u in raw.items():
+                users[username] = {
+                    "id": b64decode(u["id"]),
+                    "credentials": []
+                }
+                for cred in u.get("credentials", []):
+                    users[username]["credentials"].append({
+                        "credential_id": b64decode(cred["credential_id"]),
+                        "public_key": b64decode(cred["public_key"]),
+                        "sign_count": cred["sign_count"]
+                    })
+
+# ---------- Registration ----------
+@app.route("/generate-options", methods=["POST"])
+def generate_options():
     data = request.get_json()
     username = data["username"]
+    display_name = data["displayName"]
 
-    if username not in users:
-        user_id = uuid.uuid4().bytes
-        users[username] = {
-            "id": user_id,
-            "credentials": [],
-        }
+    user_id = os.urandom(16)
+    users[username] = {
+        "id": user_id,
+        "credentials": []
+    }
 
-    registration_options = generate_registration_options(
-        rp=PublicKeyCredentialRpEntity(id=RP_ID, name=RP_NAME),
-        user=PublicKeyCredentialUserEntity(
-            id=users[username]["id"],
-            name=username,
-            display_name=username,
-        ),
+    user = PublicKeyCredentialUserEntity(id=user_id, name=username, display_name=display_name)
+    options = generate_registration_options(
+        rp=rp,
+        user=user,
         authenticator_selection=AuthenticatorSelectionCriteria(
-            user_verification=UserVerificationRequirement.REQUIRED,
+            user_verification=UserVerificationRequirement.REQUIRED
         ),
-        attestation="none"
+        attestation=AttestationConveyancePreference.NONE,
     )
 
-    challenges[username] = registration_options.challenge
-    return jsonify(json.loads(options_to_json(registration_options)))
+    challenges[username] = options.challenge
+    return jsonify(json.loads(options_to_json(options)))
 
 @app.route("/verify-registration", methods=["POST"])
 def verify_registration():
@@ -71,32 +95,104 @@ def verify_registration():
     username = data["username"]
     credential = data["credential"]
 
+    if username not in users or username not in challenges:
+        return jsonify({"success": False, "error": "User not found or no challenge"}), 400
+
     try:
-        result = verify_registration_response(
-            credential=RegistrationCredential.parse_obj(credential),
+        cred = RegistrationCredential.parse_obj(credential)
+        verification = verify_registration_response(
+            credential=cred,
             expected_challenge=challenges[username],
-            expected_origin=ORIGIN,
-            expected_rp_id=RP_ID,
-            require_user_verification=True,
+            expected_origin=origin,
+            expected_rp_id=rp_id,
         )
-
         users[username]["credentials"].append({
-            "credential_id": result.credential_id,
-            "public_key": result.credential_public_key,
-            "sign_count": result.sign_count,
+            "credential_id": verification.credential_id,
+            "public_key": verification.credential_public_key,
+            "sign_count": verification.sign_count
         })
-
+        save_users()
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 400
 
-@app.route("/trigger-auth")
-def trigger_auth():
-    if TRIGGER_FILE.exists():
-        with open(TRIGGER_FILE) as f:
-            data = json.load(f)
-            return jsonify({"trigger": data.get("trigger", False)})
-    return jsonify({"trigger": False})
+# ---------- Authentication (Face ID) ----------
+@app.route("/login-challenge", methods=["POST"])
+def login_challenge():
+    data = request.get_json()
+    username = data["username"]
 
+    if username not in users or not users[username]["credentials"]:
+        return jsonify({"error": "User not registered"}), 400
+
+    options = generate_authentication_options(
+        rp_id=rp_id,
+        allow_credentials=[{
+            "id": cred["credential_id"],
+            "transports": ["internal"],
+            "type": "public-key"
+        } for cred in users[username]["credentials"]],
+        user_verification=UserVerificationRequirement.REQUIRED,
+    )
+
+    auth_challenges[username] = options.challenge
+    return jsonify(json.loads(options_to_json(options)))
+
+@app.route("/verify-assertion", methods=["POST"])
+def verify_assertion():
+    data = request.get_json()
+    username = data["username"]
+    credential = data["credential"]
+
+    if username not in users or username not in auth_challenges:
+        return jsonify({"success": False, "error": "No login challenge"}), 400
+
+    try:
+        auth = AuthenticationCredential.parse_obj(credential)
+        matching_cred = None
+        for cred in users[username]["credentials"]:
+            if cred["credential_id"] == auth.raw_id:
+                matching_cred = cred
+                break
+
+        if not matching_cred:
+            return jsonify({"success": False, "error": "Credential not found"}), 400
+
+        verification = verify_authentication_response(
+            credential=auth,
+            expected_challenge=auth_challenges[username],
+            expected_rp_id=rp_id,
+            expected_origin=origin,
+            credential_public_key=matching_cred["public_key"],
+            credential_current_sign_count=matching_cred["sign_count"],
+        )
+
+        # Update sign count
+        matching_cred["sign_count"] = verification.new_sign_count
+        save_users()
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+# ---------- BLE Scan ----------
+@app.route("/trigger-auth")
+def check_trigger():
+    return jsonify({"trigger": trigger["value"]})
+
+async def scan_ble():
+    while True:
+        devices = await BleakScanner.discover()
+        closest_rssi = -999
+        for d in devices:
+            if d.metadata.get("uuids") and any(IBEACON_UUID.lower() in uuid.lower() for uuid in d.metadata["uuids"]):
+                closest_rssi = max(closest_rssi, d.rssi)
+
+        trigger["value"] = closest_rssi > RSSI_THRESHOLD
+        await asyncio.sleep(1)
+
+# ---------- Server Startup ----------
 if __name__ == "__main__":
+    load_users()
+    loop = asyncio.get_event_loop()
+    loop.create_task(scan_ble())
     app.run(port=5000)
