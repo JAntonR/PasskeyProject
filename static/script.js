@@ -1,22 +1,19 @@
-const BACKEND_URL = 'https://cf9a091c54f7.ngrok-free.app'; // <-- Replace this
+const BACKEND_URL = 'https://https://decfb4248dbd.ngrok-free.app'; // Replace this
 
 async function register() {
   const username = document.getElementById('username').value;
   document.getElementById('status').textContent = '⏳ Requesting challenge...';
 
-  // 1. Fetch challenge from backend
   const challengeResp = await fetch(`${BACKEND_URL}/register-challenge`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username })
   });
-  const options = await challengeResp.json();
 
-  // Decode challenge and user ID
+  const options = await challengeResp.json();
   options.challenge = Uint8Array.from(atob(options.challenge), c => c.charCodeAt(0));
   options.user.id = Uint8Array.from(atob(options.user.id), c => c.charCodeAt(0));
 
-  // 2. Call WebAuthn API
   let cred;
   try {
     cred = await navigator.credentials.create({ publicKey: options });
@@ -25,7 +22,6 @@ async function register() {
     return;
   }
 
-  // 3. Send response to backend
   const response = {
     id: cred.id,
     rawId: btoa(String.fromCharCode(...new Uint8Array(cred.rawId))),
@@ -43,9 +39,5 @@ async function register() {
   });
 
   const result = await verifyResp.json();
-  if (result.success) {
-    document.getElementById('status').textContent = '✅ Passkey registered successfully!';
-  } else {
-    document.getElementById('status').textContent = '❌ Failed to register.';
-  }
+  document.getElementById('status').textContent = result.success ? '✅ Passkey registered!' : '❌ Registration failed.';
 }

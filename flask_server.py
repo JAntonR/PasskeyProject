@@ -1,10 +1,15 @@
-from flask import Flask, request, jsonify
+# flask_server.py
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from base64 import b64encode, b64decode
-import os
-import json
 import uuid
+import json
+from pathlib import Path
 
+from webauthn import (
+    generate_registration_options,
+    verify_registration_response,
+)
 from webauthn.helpers import options_to_json
 from webauthn.helpers.structs import (
     PublicKeyCredentialRpEntity,
@@ -13,21 +18,24 @@ from webauthn.helpers.structs import (
     AuthenticatorSelectionCriteria,
     UserVerificationRequirement,
 )
-from webauthn import (
-    generate_registration_options,
-    verify_registration_response,
-)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
 CORS(app)
 
-rp_id = "localhost:5000"  # You can use your ngrok domain here if needed
-rp_name = "Pizza Locker"
-origin = "https://cf9a091c54f7.ngrok-free.app"  # <- Replace with your actual ngrok URL
+# ------------------ Config ------------------
+RP_ID = "localhost"  # Can update to ngrok domain if needed
+RP_NAME = "Phone Locker"
+ORIGIN = "https://decfb4248dbd.ngrok-free.app"  # <- Replace after ngrok is started
+TRIGGER_FILE = Path("trigger.json")
 
-# In-memory "database"
-users = {}  # username -> { id, credentials }
-challenges = {}  # username -> challenge
+users = {}
+challenges = {}
+
+# ------------------ Routes ------------------
+
+@app.route("/")
+def home():
+    return send_from_directory("templates", "register.html")
 
 @app.route("/register-challenge", methods=["POST"])
 def register_challenge():
@@ -40,13 +48,11 @@ def register_challenge():
             "id": user_id,
             "credentials": [],
         }
-    else:
-        user_id = users[username]["id"]
 
     registration_options = generate_registration_options(
-        rp=PublicKeyCredentialRpEntity(id=rp_id, name=rp_name),
+        rp=PublicKeyCredentialRpEntity(id=RP_ID, name=RP_NAME),
         user=PublicKeyCredentialUserEntity(
-            id=user_id,
+            id=users[username]["id"],
             name=username,
             display_name=username,
         ),
@@ -57,8 +63,6 @@ def register_challenge():
     )
 
     challenges[username] = registration_options.challenge
-
-    # Return JSON-serializable dict
     return jsonify(json.loads(options_to_json(registration_options)))
 
 @app.route("/verify-registration", methods=["POST"])
@@ -67,29 +71,32 @@ def verify_registration():
     username = data["username"]
     credential = data["credential"]
 
-    if username not in users or username not in challenges:
-        return jsonify({"success": False, "error": "Unknown user or challenge expired"}), 400
-
     try:
-        verified_registration = verify_registration_response(
+        result = verify_registration_response(
             credential=RegistrationCredential.parse_obj(credential),
             expected_challenge=challenges[username],
-            expected_rp_id=rp_id,
-            expected_origin=origin,
+            expected_origin=ORIGIN,
+            expected_rp_id=RP_ID,
             require_user_verification=True,
         )
 
-        # Store the credential for later login (not implemented yet)
         users[username]["credentials"].append({
-            "credential_id": verified_registration.credential_id,
-            "public_key": verified_registration.credential_public_key,
-            "sign_count": verified_registration.sign_count,
+            "credential_id": result.credential_id,
+            "public_key": result.credential_public_key,
+            "sign_count": result.sign_count,
         })
 
         return jsonify({"success": True})
     except Exception as e:
-        print("Registration failed:", str(e))
         return jsonify({"success": False, "error": str(e)}), 400
+
+@app.route("/trigger-auth")
+def trigger_auth():
+    if TRIGGER_FILE.exists():
+        with open(TRIGGER_FILE) as f:
+            data = json.load(f)
+            return jsonify({"trigger": data.get("trigger", False)})
+    return jsonify({"trigger": False})
 
 if __name__ == "__main__":
     app.run(port=5000)
