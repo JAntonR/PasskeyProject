@@ -1,51 +1,85 @@
-from flask import Flask, render_template, request, jsonify, session
-from fido2.server import Fido2Server
-from fido2.webauthn import PublicKeyCredentialRpEntity, UserVerificationRequirement
-from fido2 import cbor
-import os
+from flask import Flask, jsonify, request
+from webauthn import (
+    generate_registration_options, verify_registration_response,
+    generate_authentication_options, verify_authentication_response
+)
+from webauthn.helpers.structs import (
+    PublicKeyCredentialRpEntity, UserVerificationRequirement, AuthenticatorSelectionCriteria
+)
+import base64, os
 
 app = Flask(__name__)
-app.secret_key = os.urandom(32)
+users = {}  # {username: {id, credentials: []}}
+auth_triggered = False
 
-USERS = {}
-CREDENTIALS = {}
+rp = PublicKeyCredentialRpEntity(id="your-domain.com", name="Locker Pickup")
 
-rp_id = "localhost"
-rp_name = "My Passkey App"
-server = Fido2Server({"id": rp_id, "name": rp_name})
+@app.route("/trigger-auth", methods=["GET"])
+def trigger_auth():
+    return jsonify({"trigger": auth_triggered})
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+@app.route("/login-challenge", methods=["POST"])
+def login_challenge():
+    username = request.json["username"]
+    user = users[username]
+    options = generate_authentication_options(
+        rp_id=rp.id,
+        allow_credentials=[cred["id"] for cred in user["credentials"]],
+        user_verification=UserVerificationRequirement.REQUIRED
+    )
+    user["auth_challenge"] = options.challenge
+    return jsonify(options.model_dump())
 
-@app.route("/generate-registration-options", methods=["POST"])
-def generate_registration_options():
+@app.route("/verify-assertion", methods=["POST"])
+def verify_assertion():
+    data = request.json
+    username = data["username"]
+    user = users[username]
+    cred = verify_authentication_response(
+        credential=data["credential"],
+        expected_challenge=user["auth_challenge"],
+        expected_rp_id=rp.id,
+        expected_origin="https://your.github.pages.site",
+        credential_public_key=user["credentials"][0]["public_key"],
+        credential_current_sign_count=0,
+        require_user_verification=True
+    )
+    global auth_triggered
+    auth_triggered = False
+    return jsonify({"status": "OK", "unlock": True})
+
+@app.route("/register-options", methods=["POST"])
+def register_options():
     username = request.json["username"]
     user_id = os.urandom(16)
-    user = {
-        "id": user_id,
-        "name": username,
-        "displayName": username,
-    }
-
-    USERS[username] = user
-    registration_data, state = server.register_begin(
-        user,
-        user_verification=UserVerificationRequirement.PREFERRED,
+    options = generate_registration_options(
+        rp=rp,
+        user={"id": user_id, "name": username, "display_name": username},
+        authenticator_selection=AuthenticatorSelectionCriteria(
+            user_verification=UserVerificationRequirement.REQUIRED
+        )
     )
-    session["state"] = state
-    return cbor.encode(registration_data)
+    users[username] = {"id": user_id, "credentials": [], "reg_challenge": options.challenge}
+    return jsonify(options.model_dump())
 
 @app.route("/verify-registration", methods=["POST"])
 def verify_registration():
-    data = cbor.decode(request.get_data())
-    state = session.pop("state")
-    auth_data = server.register_complete(state, data["clientDataJSON"], data["attestationObject"])
+    data = request.json
+    username = data["username"]
+    cred = verify_registration_response(
+        credential=data["credential"],
+        expected_challenge=users[username]["reg_challenge"],
+        expected_origin="https://your.github.pages.site",
+        expected_rp_id=rp.id
+    )
+    users[username]["credentials"].append({
+        "id": cred.credential_id,
+        "public_key": cred.credential_public_key
+    })
+    return jsonify({"status": "registered"})
 
-    username = next((name for name, u in USERS.items() if u["id"] == auth_data.credential_id), None)
-    CREDENTIALS[username] = auth_data.credential_data
-
-    return cbor.encode({"status": "ok"})
-
-if __name__ == "__main__":
-    app.run(debug=True)
+@app.route("/set-trigger", methods=["POST"])
+def set_trigger():
+    global auth_triggered
+    auth_triggered = request.json.get("trigger", False)
+    return jsonify({"ok": True})
