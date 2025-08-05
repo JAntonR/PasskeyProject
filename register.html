@@ -1,0 +1,31 @@
+<!-- register.html -->
+<html>
+<head><title>Register</title></head>
+<body>
+  <h1>Register your passkey</h1>
+  <input id="username" placeholder="Enter username" />
+  <button onclick="register()">Register</button>
+  <script>
+    async function register() {
+      const username = document.getElementById("username").value;
+      const options = await fetch("https://316b2d2fcea6.ngrok-free.app/register-options", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username})
+      }).then(res => res.json());
+
+      options.challenge = Uint8Array.from(atob(options.challenge), c => c.charCodeAt(0));
+      options.user.id = Uint8Array.from(atob(options.user.id), c => c.charCodeAt(0));
+
+      const cred = await navigator.credentials.create({publicKey: options});
+      await fetch("https://316b2d2fcea6.ngrok-free.app/verify-registration", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({username, credential: cred})
+      });
+
+      alert("✅ Registered!");
+    }
+  </script>
+</body>
+</html>
