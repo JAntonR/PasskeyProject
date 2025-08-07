@@ -12,11 +12,12 @@ app = Flask(__name__)
 CORS(app)
 
 # === Configuration ===
-TARGET_DEVICE_NAME = "BBNo$"
+TARGET_DEVICE_NAME = "BBNo$" # The name of the target BLE device to scan for
+# This is a constant and should be updated if the target device name changes.
 trigger_auth = False  # Global flag for triggering Face ID
 
 # === Database Setup ===
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://lockeruser:securepassword@localhost:5432/smartlocker'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://lockeruser:securepassword@localhost:5432/smartlocker' # Update with your actual database URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -103,7 +104,7 @@ def index():
 def scan():
     try:
         devices = asyncio.run(scan_ble_devices())
-        return jsonify(devices = 'BBNo$' in [d['name'] for d in devices])
+        return jsonify(devices = 'BBNo$' in [d['name'] for d in devices]) # Return True if target device is found
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -115,7 +116,7 @@ def login_challenge():
     return jsonify({
         "publicKey": {
             "challenge": "c0ffee" * 8,
-            "rpId": "9bae77f0c811.ngrok-free.app",
+            "rpId": "9bae77f0c811.ngrok-free.app", #This will change every time you run ngrok, so this would be neeeded to be updated.
             "timeout": 60000,
             "allowCredentials": [{
                 "type": "public-key",
@@ -203,3 +204,11 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True)
+
+
+#I also want to note that the code above only works with the BLE device named "BBNo$". It is not dynamic and will not work with other devices, unless you modify the TARGET_DEVICE_NAME constant.
+#It will register the roughly correct distance based on bluetooth signal strength (RSSI).
+#The authentication and registration endpoints are placeholders and should be replaced with real FIDO2/WebAuthn logic.
+#Since I have an iOS device and BLE cannot be run in the background, I am using LightBlue to scan for devices.
+#Make sure to install the required packages: Flask, Flask-CORS, Flask-SQLAlchemy
+## You can run the app with `python bluetooth-server.py` and access it at http://localhost:5000 or more importantly ngrok tunnel.
