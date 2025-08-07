@@ -125,7 +125,7 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
     } catch (err) {
       console.error("Error polling /trigger-auth:", err);
     }
-  }, 1000); // Poll every 1 second
+  }, 60000); // Poll every 10 second
 </script>
 </body>
 </html>
