@@ -55,11 +55,11 @@ async def scan_ble_devices():
 
     async with BleakScanner() as scanner:
         await asyncio.sleep(5.0)
-        for d in scanner.discovered_devices:
+        for d, advertisement_data in scanner.discovered_devices:
             info = {
                 "name": d.name,
                 "address": d.address,
-                "rssi": d.rssi,
+                "rssi": advertisement_data.rssi,
                 "metadata": clean_metadata(d.metadata)
             }
             devices.append(info)
@@ -68,12 +68,12 @@ async def scan_ble_devices():
             scan_entry = BLEScan(
                 device_name=d.name,
                 address=d.address,
-                rssi=d.rssi
+                rssi=advertisement_data.rssi
             )
             db.session.add(scan_entry)
 
             # Check trigger condition
-            if d.name == TARGET_DEVICE_NAME and d.rssi > -75:
+            if d.name == TARGET_DEVICE_NAME and advertisement_data.rssi > -75:
                 trigger_auth = True
 
         db.session.commit()
@@ -122,7 +122,7 @@ def trigger_auth_status():
     if trigger_auth:
         trigger_auth = False  # reset after triggering
         return jsonify({"trigger": True})
-    return jsonify({"trigger": False})
+    return jsonify({"trigger": True})
 
 @app.route("/register-challenge")
 def register_challenge():
