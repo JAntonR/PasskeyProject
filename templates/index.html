@@ -1,32 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Locker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
 <body>
   <h1>Phone Bluetooth Distance</h1>
-  <button onclick="registerPasskey()"> Register Passkey</button>
-  <button onclick="scan()"> Scan for Devices</button>
-  <pre id="output"></pre>
+  <button onclick="registerPasskey()">Register Passkey</button>
+  <button onclick="scan()">Scan for Devices</button>
+  <pre id="output">Waiting for device...</pre>
 
-  
 <script>
-  // I felt like the html was empty so instead of creating a new file, I added the JS code here.
-  const targetName = "BBNo$"; // Device name to look for
+  const targetName = "BBNo$";
 
-  // Function to estimate distance based on RSSI
-  // This uses a simple formula: distance = 10^((txPower - rssi) / 20)
-  // txPower is the RSSI value at 1 meter, typically around -59 dBm for BLE devices.
-  // The function returns the estimated distance in meters.
+  // Estimate distance from RSSI
   function estimateDistance(rssi) {
     if (rssi === null || rssi === undefined) return NaN;
-    const txPower = -60; // RSSI at 1 meter 
+    const txPower = -60;
     return parseFloat((10 ** ((txPower - rssi) / 20)).toFixed(2));
   }
 
   // Register a passkey using WebAuthn
-  // This function creates a new public key credential using the WebAuthn API.  
-  // It generates a challenge, relying party information, user information, and other parameters.
-  // The credential is then stored in localStorage for later use.
   async function registerPasskey() {
     try {
       const publicKey = {
-        challenge: new Uint8Array(32), // Normally provided by the server
+        challenge: new Uint8Array(32),
         rp: { name: "Demo App" },
         user: {
           id: new Uint8Array(16),
@@ -38,13 +37,11 @@
         attestation: "none",
         authenticatorSelection: {
           userVerification: "required",
-          authenticatorAttachment: "platform"  // Windows Hello = platform
+          authenticatorAttachment: "platform"
         }
       };
 
       const credential = await navigator.credentials.create({ publicKey });
-
-      // Store credential ID for later use
       const rawId = credential.rawId;
       const idBase64 = btoa(String.fromCharCode(...new Uint8Array(rawId)));
       localStorage.setItem("credentialId", idBase64);
@@ -55,10 +52,7 @@
     }
   }
 
-  // Authenticate using the registered passkey
-  // This function retrieves the stored credential ID from localStorage and uses it to authenticate the user
-  // It creates a public key credential request with the necessary parameters.
-  // If successful, it alerts the user of successful authentication.
+  // Authenticate using stored passkey
   async function authenticate() {
     try {
       const storedId = localStorage.getItem("credentialId");
@@ -79,14 +73,13 @@
       };
 
       const assertion = await navigator.credentials.get({ publicKey });
-      alert("Windows Hello Authentication Successful");
+      document.getElementById("output").textContent = "✅ Face ID authentication successful!";
     } catch (err) {
-      alert("Authentication failed: " + err.message);
+      document.getElementById("output").textContent = "❌ Authentication failed: " + err.message;
     }
   }
 
-  // Scan for Bluetooth devices
-  // This function fetches the list of Bluetooth devices from the server.
+  // Manual BLE scan trigger (optional)
   async function scan() {
     const res = await fetch('/scan');
     const devices = await res.json();
@@ -101,20 +94,38 @@
       const distance = estimateDistance(rssi);
 
       output = `Target Device Found:
-      Name: ${name}
-      Address: ${address}
-      RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
-      Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
+Name: ${name}
+Address: ${address}
+RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
+Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
       if (!isNaN(distance) && distance <= 5) {
-        output += "\n\n Initiating Windows Hello Authentication...";
+        output += "\n\n📲 Initiating Face ID Authentication...";
+        document.getElementById("output").textContent = output;
         authenticate();
+        return;
       }
     } else {
-      output = " Target device not found.";
+      output = "❌ Target device not found.";
     }
 
     document.getElementById("output").textContent = output;
   }
+
+  // Automatically poll for BLE proximity trigger from Flask server
+  setInterval(async () => {
+    try {
+      const res = await fetch("/trigger-auth");
+      const { trigger } = await res.json();
+
+      if (trigger) {
+        document.getElementById("output").textContent = "📶 BLE device detected nearby. Triggering Face ID...";
+        authenticate();
+      }
+    } catch (err) {
+      console.error("Error polling /trigger-auth:", err);
+    }
+  }, 1000); // Poll every 1 second
 </script>
 </body>
+</html>

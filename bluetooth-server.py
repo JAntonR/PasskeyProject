@@ -1,17 +1,32 @@
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
 import asyncio
 from bleak import BleakScanner
 
 app = Flask(__name__)
 CORS(app)
 
+# === Configuration ===
 TARGET_DEVICE_NAME = "BBNo$"
+trigger_auth = False  # Global flag for triggering Face ID
 
-# This function cleans the metadata dictionary by converting bytes to hex strings
-# and recursively cleaning nested dictionaries.
-# It ensures that the metadata is JSON serializable.
-# This is necessary because Flask's jsonify function cannot handle bytes directly.
+# === Database Setup ===
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://lockeruser:securepassword@localhost:5432/smartlocker'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class BLEScan(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    device_name = db.Column(db.String(80))
+    address = db.Column(db.String(120))
+    rssi = db.Column(db.Integer)
+    timestamp = db.Column(db.DateTime, server_default=db.func.now())
+
+    
+
+# === Helper Function ===
 def clean_metadata(metadata):
     clean = {}
     for key, value in metadata.items():
@@ -23,29 +38,44 @@ def clean_metadata(metadata):
             clean[key] = value
     return clean
 
-# This function scans for Bluetooth Low Energy (BLE) devices
-# and returns a list of devices with their name, address, RSSI, and cleaned metadata
-# It uses the BleakScanner from the bleak library to perform the scan.
+# === BLE Scan Function ===
 async def scan_ble_devices():
+    global trigger_auth
     devices = []
+
     async with BleakScanner() as scanner:
-        await asyncio.sleep(5.0)  # scan for 5 seconds
+        await asyncio.sleep(5.0)
         for d in scanner.discovered_devices:
-            devices.append({
+            info = {
                 "name": d.name,
                 "address": d.address,
                 "rssi": d.rssi,
                 "metadata": clean_metadata(d.metadata)
-            })
+            }
+            devices.append(info)
+
+            # Save to database
+            scan_entry = BLEScan(
+                device_name=d.name,
+                address=d.address,
+                rssi=d.rssi
+            )
+            db.session.add(scan_entry)
+
+            # Check trigger condition
+            if d.name == TARGET_DEVICE_NAME and d.rssi > -75:
+                trigger_auth = True
+
+        db.session.commit()
+
     return devices
 
-# Flask routes for the web application
+# === Routes ===
+
 @app.route('/')
 def index():
     return render_template("index.html")
 
-# This route handles the BLE scan request.
-# It runs the scan_ble_devices function asynchronously and returns the list of devices as JSON.
 @app.route('/scan')
 def scan():
     try:
@@ -54,16 +84,12 @@ def scan():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# This route serves the login challenge for WebAuthn.
-# It returns a JSON object with the challenge, relying party ID, timeout, allowed credentials,
-# and user verification preference.
-# The challenge is a base64-encoded string that should be replaced with a real challenge in
 @app.route("/login-challenge")
 def login_challenge():
     return jsonify({
         "publicKey": {
             "challenge": "c0ffee" * 8,
-            "rpId": "localhost",
+            "rpId": "https://9bae77f0c811.ngrok-free.app",
             "timeout": 60000,
             "allowCredentials": [{
                 "type": "public-key",
@@ -73,17 +99,23 @@ def login_challenge():
         }
     })
 
-# This route handles the verification of the WebAuthn assertion.
-# It expects a JSON payload with the credential ID and other necessary data.
-# In a real application, this should validate the assertion using a library like fido2.
 @app.route("/verify-assertion", methods=["POST"])
 def verify_assertion():
     data = request.get_json()
     print("Received credential ID:", data.get("id"))
-    # NOTE: Replace this with actual validation using fido2 or similar
+    # Add real validation with fido2 here if needed
     return jsonify({"status": "ok"})
 
-# Main entry point for the Flask application
-# It runs the Flask app in debug mode.
+@app.route("/trigger-auth")
+def trigger_auth_status():
+    global trigger_auth
+    if trigger_auth:
+        trigger_auth = False  # reset after triggering
+        return jsonify({"trigger": True})
+    return jsonify({"trigger": False})
+
+# === Run App ===
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
