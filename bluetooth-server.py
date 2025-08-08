@@ -17,6 +17,8 @@ TARGET_DEVICE_NAME = "BBNo$" # The name of the target BLE device to scan for
 trigger_auth = False  # Global flag for triggering Face ID
 
 # === Database Setup ===
+# Using PostgreSQL for production; update URI as needed
+# Unsure of how to update the database live. It is stuck on data given at creation, but does not update with new scans.
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://lockeruser:securepassword@localhost:5432/smartlocker' # Update with your actual database URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -211,4 +213,4 @@ if __name__ == '__main__':
 #The authentication and registration endpoints are placeholders and should be replaced with real FIDO2/WebAuthn logic.
 #Since I have an iOS device and BLE cannot be run in the background, I am using LightBlue to scan for devices.
 #Make sure to install the required packages: Flask, Flask-CORS, Flask-SQLAlchemy
-## You can run the app with `python bluetooth-server.py` and access it at http://localhost:5000 or more importantly ngrok tunnel.
+## You can run the app with `python bluetooth-server.py` and access it at http://localhost:5000 or more importantly with ngrok tunnel.

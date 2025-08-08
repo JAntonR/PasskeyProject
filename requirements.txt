@@ -1,0 +1,7 @@
+Flask==2.3.3
+flask-cors==4.0.0
+flask-sqlalchemy==3.1.1
+SQLAlchemy==2.0.23
+asyncio ; python_version < "3.11"  # Included for compatibility
+bleak==0.21.1
+psycopg2-binary==2.9.9
