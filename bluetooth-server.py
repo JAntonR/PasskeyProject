@@ -113,6 +113,7 @@ def scan():
 # === Authentication Endpoints ===
 # These endpoints handle FIDO2/WebAuthn authentication challenges and verifications.
 # These are simplified for demonstration purposes and should be replaced with real FIDO2 logic.
+# This endpoint provides a login challenge for the client.
 @app.route("/login-challenge")
 def login_challenge():
     return jsonify({
@@ -130,6 +131,7 @@ def login_challenge():
 
 # This endpoint verifies the assertion from the client.
 # It should contain real validation logic using FIDO2 libraries.
+# This is a placeholder for demonstration purposes.
 @app.route("/verify-assertion", methods=["POST"])
 def verify_assertion():
     data = request.get_json()
@@ -139,6 +141,7 @@ def verify_assertion():
 
 # This endpoint triggers the Face ID authentication status.
 # It checks a global flag and resets it after triggering.
+# This is a placeholder for demonstration purposes.
 @app.route("/trigger-auth")
 def trigger_auth_status():
     global trigger_auth
@@ -159,6 +162,8 @@ def register_challenge():
     user_id = base64.b64encode(os.urandom(16)).decode("utf-8")
     challenge = base64.b64encode(os.urandom(32)).decode("utf-8")
 
+    # Store the challenge in a session or database for later verification
+    # This is a placeholder; in a real application, you would store this securely.
     return jsonify({
         "challenge": challenge,
         "rp": { "name": "Smart Locker", "id": "localhost" },

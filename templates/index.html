@@ -12,9 +12,11 @@
   <pre id="output">Waiting for device...</pre>
 
 <script>
-  const targetName = "BBNo$";
+  const targetName = "BBNo$"; // The name of the target device to look for
 
   // Estimate distance from RSSI
+  // This function estimates the distance based on the RSSI value.
+  // It uses a simple formula where the txPower is set to -60 dBm.
   function estimateDistance(rssi) {
     if (rssi === null || rssi === undefined) return NaN;
     const txPower = -60;
@@ -22,6 +24,8 @@
   }
 
   // Register a passkey using WebAuthn
+  // This function creates a new passkey credential and stores it in localStorage.
+  // It uses the WebAuthn API to create a public key credential.
   async function registerPasskey() {
     try {
       const publicKey = {
@@ -41,6 +45,8 @@
         }
       };
 
+      // Create the credential using the WebAuthn API
+      // This will prompt the user to register their passkey.
       const credential = await navigator.credentials.create({ publicKey });
       const rawId = credential.rawId;
       const idBase64 = btoa(String.fromCharCode(...new Uint8Array(rawId)));
@@ -53,6 +59,8 @@
   }
 
   // Authenticate using stored passkey
+  // This function retrieves the stored passkey and uses it to authenticate the user.
+  // It uses the WebAuthn API to get an assertion for the stored credential.
   async function authenticate() {
     try {
       const storedId = localStorage.getItem("credentialId");
@@ -80,12 +88,16 @@
   }
 
   // Manual BLE scan trigger (optional)
+  // This function can be called to manually trigger a scan for BLE devices.
+  // It fetches the list of devices from the Flask server and checks for the target device
   async function scan() {
     const res = await fetch('/scan');
     const devices = await res.json();
 
     const targetDevice = devices.find(device => device.name === targetName);
 
+    // If the target device is found, display its details and initiate Face ID authentication
+    // If the target device is not found, display a message indicating that it was not found
     let output = "";
     if (targetDevice) {
       const name = targetDevice.name || "Unknown";
@@ -99,6 +111,7 @@ Address: ${address}
 RSSI: ${rssi !== null ? rssi + " dBm" : "Unknown"}
 Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
 
+// If the estimated distance is less than or equal to 5 meters, initiate Face ID authentication
       if (!isNaN(distance) && distance <= 5) {
         output += "\n\n📲 Initiating Face ID Authentication...";
         document.getElementById("output").textContent = output;
@@ -106,13 +119,15 @@ Estimated Distance: ${!isNaN(distance) ? distance + " meters" : "Unknown"}`;
         return;
       }
     } else {
-      output = "❌ Target device not found.";
+      output = "❌ Target device not found."; // If the target device is not found, display a message
     }
 
-    document.getElementById("output").textContent = output;
+    document.getElementById("output").textContent = output; // Display the output in the pre element
   }
 
   // Automatically poll for BLE proximity trigger from Flask server
+  // This function checks the server every 6 seconds to see if the target device is nearby.
+  // If the device is detected, it triggers Face ID authentication.
   setInterval(async () => {
     try {
       const res = await fetch("/trigger-auth");
